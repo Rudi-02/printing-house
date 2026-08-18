@@ -1,0 +1,43 @@
+{
+  "products": [
+    {
+      "name": "Hemijska olovka Classic",
+      "description": "Plasticna hemijska olovka pogodna za tampon stampu logotipa.",
+      "category": "Stampa malih formata",
+      "subcategory": "Olovke",
+      "price": 65,
+      "quantity": 800,
+      "colors": ["bela", "plava", "crna"],
+      "services": [
+        { "name": "Tampon stampa", "maxWidth": 40, "maxHeight": 6, "extraPrice": 25 },
+        { "name": "Gravura", "maxWidth": 35, "maxHeight": 5, "extraPrice": 60 }
+      ]
+    },
+    {
+      "name": "Polo majica Premium",
+      "description": "Pamucna polo majica 220g, velicine S-XXL.",
+      "category": "Kreativne stampe",
+      "subcategory": "Stampa na majicama",
+      "price": 1290,
+      "quantity": 150,
+      "colors": ["bela", "crna", "teget"],
+      "services": [
+        { "name": "Digitalna FLEKS stampa", "maxWidth": 250, "maxHeight": 300, "extraPrice": 350 },
+        { "name": "Direktna stampa na tekstil", "maxWidth": 300, "maxHeight": 400, "extraPrice": 520 },
+        { "name": "Preslikac", "maxWidth": 200, "maxHeight": 250, "extraPrice": 180 }
+      ]
+    },
+    {
+      "name": "Roll-up baner 85x200",
+      "description": "Aluminijumski roll-up sa torbom za transport.",
+      "category": "Stampa velikih formata",
+      "subcategory": "Rollups",
+      "price": 5900,
+      "quantity": 25,
+      "colors": ["bela"],
+      "services": [
+        { "name": "Solventna stampa", "maxWidth": 850, "maxHeight": 2000, "extraPrice": 900 }
+      ]
+    }
+  ]
+}

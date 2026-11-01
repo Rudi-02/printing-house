@@ -1,156 +1,219 @@
-# Printing House — projekat iz Programiranja internet aplikacija (2025/26)
+# Printing House
 
-Veb sistem (platforma) za štamparije. Tri kategorije korisnika: **klijenti** (fizička i pravna lica),
-**štampari** i **administrator** sistema.
+A web platform that connects **customers** with **printing houses**. Customers browse products,
+configure a print job (text and/or artwork overlaid on the product image), order, pay, track
+delivery and rate the result. Printing houses manage their catalogue, stock and incoming orders,
+bid on public tenders, and produce reports. An **administrator** approves accounts, manages
+categories and reads platform statistics.
 
-**Tehnologije (opcija 2 iz postavke):** Angular 20 (standalone, signals) + Express/NodeJS + MongoDB.
-Baza podataka: **`printing-house-db`** (kolekcije se kreiraju automatski kroz Mongoose šeme —
-skripte za kolekcije nisu deo isporuke, po zahtevu).
+> Course project for *Internet Application Programming* — School of Electrical Engineering,
+> University of Belgrade, 2025/2026.
 
 ---
 
-## Struktura
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Angular 20 — standalone components, signals, lazy-loaded routes |
+| Backend | Node.js + Express, REST API on port `4000` |
+| Database | MongoDB (`printing-house-db`), Mongoose schemas — collections are created automatically |
+| Auth | JWT (role-based), bcrypt password hashing |
+| Uploads | Multipart file upload, server-side image validation (`image-size`) |
+| Documents | PDFKit for invoices and reports, nodemailer for email delivery |
+| Charts | Chart.js (admin statistics) |
+| Payments | Card form with Luhn validation; Stripe credentials in `.env` |
+
+---
+
+## Project structure
 
 ```
 printing-house/
 ├── server/                      # Express + Mongoose (REST API, port 4000)
 │   ├── src/
-│   │   ├── config/              # konekcija na bazu, konstante, regularni izrazi
+│   │   ├── config/              # database connection, constants, regular expressions
 │   │   ├── models/              # User, Category, Product, Cart, Invoice, Tender,
 │   │   │                        # Comment, Rating, PasswordReset
-│   │   ├── middleware/          # JWT autentikacija/autorizacija, FileUpload, greške
-│   │   ├── utils/               # validatori, nodemailer, PDFKit generatori
+│   │   ├── middleware/          # JWT auth/authorisation, file upload, error handling
+│   │   ├── utils/               # validators, nodemailer, PDFKit generators
 │   │   ├── controllers/         # auth, user, category, product, cart, order, tender, admin
-│   │   ├── routes/index.js      # sve REST rute
-│   │   └── server.js            # ulazna tačka
+│   │   ├── routes/index.js      # all REST routes
+│   │   └── server.js            # entry point
 │   ├── uploads/                 # profiles / products / prints / pdf
-│   ├── lager-lista-primer.json  # primer JSON fajla za uvoz (Prilog 1)
+│   ├── sample-inventory.json    # example inventory file for import (Appendix 1)
 │   └── .env.example
-└── client/                      # Angular 20 (standalone komponente, lazy rute)
+└── client/                      # Angular 20 (standalone components, lazy routes)
     └── src/app/
-        ├── core/                # modeli, AuthService, DataService, interceptor, guards
+        ├── core/                # models, AuthService, DataService, interceptor, guards
         └── pages/               # home, auth, product-details, client, printer, admin
 ```
 
-## Pokretanje
+---
 
-**1) Baza** — pokrenuti MongoDB lokalno (baza `printing-house-db` se kreira sama).
+## Running it
 
-**2) Server**
+**1 — Database.** Start MongoDB locally. The `printing-house-db` database is created on first use;
+the assignment does not ship collection scripts, since Mongoose schemas define them.
+
+**2 — Server**
+
 ```bash
 cd server
 npm install
-cp .env.example .env      # po potrebi izmeniti SMTP / Stripe podatke
+cp .env.example .env      # fill in SMTP / Stripe credentials if needed
 npm run dev               # http://localhost:4000
 ```
 
-**3) Klijent**
+**3 — Client**
+
 ```bash
 cd client
 npm install
 npm start                 # http://localhost:4200
 ```
 
-**Napomena o administratoru:** registracija administratora se, po postavci, ne realizuje.
-Administratorski nalog se ubacuje direktno u bazu (`role: "ADMIN"`, `status: "APPROVED"`,
-lozinka bcrypt-hash). Prijava je na posebnoj, javno nevidljivoj ruti **`/admin-login`**.
+**Administrator account.** Registration of administrators is not implemented, as required by the
+assignment. Insert the account directly into the database (`role: "ADMIN"`, `status: "APPROVED"`,
+bcrypt-hashed password). Administrators sign in through a separate, unlinked route: **`/admin-login`**.
 
-**Podrazumevane slike:** u `server/uploads/profiles/` postaviti `default_profile_image.jpg`,
-a u `server/uploads/products/` `default_product.jpg`.
+**Default images.** Place `default_profile_image.jpg` in `server/uploads/profiles/` and
+`default_product.jpg` in `server/uploads/products/`.
 
 ---
 
-## Realizovane funkcionalnosti
+## Features
 
-### Autentifikacija i registracija
-- Prijava korisničkim imenom/lozinkom, poruka o grešci pri pogrešnim podacima.
-- Zaboravljena lozinka → link ispod forme → unos korisničkog imena ili i-mejla →
-  privremeni link poslat na i-mejl, **važi 5 minuta** (TTL indeks u bazi + provera na serveru).
-- Odvojena, javno nevidljiva forma za administratora (`/admin-login`).
-- Registracija fizičkih lica (odmah aktivni) i pravnih lica / štamparija
-  (status `PENDING`, čekaju odobrenje administratora).
-- Validacija lozinke regularnim izrazom (8–12 karaktera, počinje slovom, bar 1 veliko slovo,
-  1 broj, 1 specijalni karakter) na klijentu (JavaScript) **i** na serveru; lozinka se čuva bcrypt-kriptovana.
-- Matični broj: tačno 8 cifara i jedinstven. PIB: 9 cifara, ne počinje nulom, jedinstven.
-  Korisničko ime i i-mejl jedinstveni na nivou sistema.
-- Profilna slika isključivo preko FileUpload prozora; dimenzije 100×100 – 250×250 px,
-  JPG/PNG/GIF — provera i u pregledaču i na serveru (`image-size`); u suprotnom `default_profile_image.jpg`.
+### Authentication and registration
 
-### Neregistrovani korisnik
-- Ukupan broj registrovanih štamparija i **TOP 5** proizvoda po broju sviđanja.
-- Pretraga po nazivu i/ili kategoriji; padajuća lista inicijalno „Sve kategorije“ i sadrži
-  samo kategorije sa aktivnim proizvodima na stanju.
-- Rezultati u tabeli sa dugmetom **DETALJI**; abecedno sortiranje (rastuće/opadajuće) klikom na zaglavlje.
-- Strana sa detaljima: naziv, štamparija, grad, broj sviđanja/nesviđanja i galerija
-  (glavna slika + do 3 thumbnail-a); izabrana glavna slika se **pamti u kolačiću** pregledača.
+- Sign-in with username and password; an explicit error message on bad credentials.
+- **Forgot password** — link below the form, enter username or email, a temporary link is emailed
+  and **valid for 5 minutes** (TTL index in the database plus a server-side check).
+- A separate, publicly unlinked form for the administrator (`/admin-login`).
+- Individuals are activated immediately; companies and printing houses are created with status
+  `PENDING` and wait for administrator approval.
+- Password validated by regular expression (8–12 characters, starts with a letter, at least one
+  uppercase letter, one digit, one special character) **on the client in JavaScript and again on
+  the server**; stored bcrypt-hashed.
+- Company registration number: exactly 8 digits and unique. Tax ID (PIB): 9 digits, must not start
+  with zero, unique. Username and email are unique across the system.
+- Profile image only through the file-upload dialog; 100×100 – 250×250 px, JPG/PNG/GIF — validated
+  both in the browser and on the server (`image-size`); anything else falls back to
+  `default_profile_image.jpg`.
 
-### Klijenti
-- **Profil:** pregled i ažuriranje podataka (korisničko ime zaključano) i promena profilne slike.
-  Ispod — tabela svih narudžbina sa sortiranjem: ID fakture, štamparija, grad, numerisani
-  proizvodi sa količinom, ukupan iznos u dinarima i dugme **Otkaži** samo za status „naručeno“.
-- **Pretraživanje proizvoda:** proširena strana sa detaljima (opis, cena po komadu, izbor boje —
-  podrazumevano bela, vrste štampe sa maksimalnim dimenzijama i dodatnom cenom) i **mapom** lokacije štamparije.
-- **Priprema proizvoda** (dugme DALJE): unos teksta i/ili postavljanje sličice koja se renderuje
-  preko slike proizvoda (CSS preklapanje, pomeranje po X/Y osi, boja i veličina teksta),
-  unos količine, dugmad **DODAJ U KORPU**, **PONIŠTI** i **NAZAD**.
-  Proizvodi kojih nema na stanju se ne prikazuju; kod prevelike količine → „Nema dovoljno proizvoda trenutno na stanju“.
-- **E-korpa:** stavke grupisane po štamparijama; potvrdom se formira zasebna faktura po štampariji.
-  PDF fakture se generišu (PDFKit) i šalju klijentu na i-mejl (nodemailer).
-- **Plaćanje:** forma sa tipom kartice, brojem kartice, CVC kodom i datumom isteka (MM/GG),
-  uz Luhn i validaciju datuma; uspehom se uvodi međustatus „plaćeno“, neuspehom se ispisuje poruka i korak ponavlja.
-- **Javne nabavke** (samo pravno lice): potvrda korpe ne pravi fakture nego raspisuje licitaciju
-  u trajanju od 10 minuta; svim štamparijama stiže i-mejl sa listom potrebnih proizvoda.
-  Nabavka se zaključuje pri sledećoj prijavi naručioca (bez tajmera/WebSocket-a) izborom
-  najniže ukupne ponude uz dovoljne količine na stanju; formira se faktura sa statusom „u štampi“.
-- **Arhiva proizvoda:** isporučeni i primljeni proizvodi, sortirani po datumu naručivanja i po
-  nazivu / količini / štampariji; prelazak „isporučeno“ → „primljeno“; sviđanje/nesviđanje i
-  komentar za primljene proizvode. Sopstveni komentari su uokvireni **narandžastom isprekidanom linijom**.
+### Anonymous visitors
 
-### Štampari
-- **Profil** sa istim pravilima ažuriranja.
-- **Proizvodi i usluge:** dodavanje/izmena/brisanje proizvoda u predefinisane kategorije i
-  potkategorije, jedinična cena, boje, glavna slika i do 3 dodatne, plus usluge
-  (naziv, maksimalne dimenzije, dodatna cena po komadu).
-- **Ažuriranje količina** za sve postojeće proizvode.
-- **Dodavanje iz fajla:** uvoz lager liste iz JSON fajla, pa u drugom koraku dodavanje slika po proizvodu.
-- **Naručeni proizvodi:** prelazak „naručeno/plaćeno“ → „u štampi“ → „isporučeno“.
-- **Licitacije:** jedna ponuda po javnoj nabavci, sa cenom za sve tražene proizvode i naznakom raspoloživosti.
-- **Izveštavanje:** PDF izveštaj o svim pristiglim ponudama i pobedničkoj ponudi.
+- Total number of registered printing houses and the **top 5** products by number of likes.
+- Search by name and/or category; the dropdown defaults to "All categories" and lists only
+  categories that currently have active products in stock.
+- Results in a table with a **DETAILS** button; alphabetical sorting (ascending/descending) by
+  clicking a column header.
+- Product details page: name, printing house, city, likes/dislikes and a gallery (main image plus
+  up to 3 thumbnails); the selected main image is **remembered in a browser cookie**.
+
+### Customers
+
+- **Profile:** view and update details (username is locked) and change the profile image. Below it,
+  a sortable table of all orders: invoice ID, printing house, city, numbered products with
+  quantities, total in RSD, and a **Cancel** button available only while the status is `ordered`.
+- **Product search:** an expanded details page (description, price per unit, colour selection —
+  white by default, print types with maximum dimensions and additional cost) and a **map** of the
+  printing house's location.
+- **Configuring the product** (NEXT): enter text and/or upload an image that is rendered over the
+  product photo (CSS overlay, X/Y offset, text colour and size), choose a quantity, then
+  **ADD TO CART**, **RESET** or **BACK**. Out-of-stock products are hidden; requesting more than
+  available shows "Not enough products currently in stock".
+- **Cart:** items grouped by printing house; checkout creates a separate invoice per printing
+  house. Invoices are generated as PDFs (PDFKit) and emailed to the customer (nodemailer).
+- **Payment:** card type, card number, CVC and expiry (MM/YY), with Luhn and expiry-date validation.
+  Success moves the order to the intermediate `paid` status; failure shows a message and the step
+  is retried.
+- **Public tenders** (companies only): checkout does not create invoices but opens a 10-minute
+  tender, and every printing house receives an email with the required product list. The tender is
+  closed on the customer's next sign-in (no timer or WebSocket) by selecting the lowest total offer
+  that has sufficient stock; an invoice is then created with status `in print`.
+- **Archive:** shipped and received products, sorted by order date and by name / quantity /
+  printing house; transition `shipped` → `received`; like/dislike and comment on received products.
+  The user's own comments are framed with an **orange dashed border**.
+
+### Printing houses
+
+- **Profile** with the same update rules.
+- **Products and services:** add/edit/delete products in predefined categories and subcategories,
+  unit price, colours, main image plus up to 3 additional images, and services (name, maximum
+  dimensions, additional cost per unit).
+- **Stock update** for all existing products.
+- **Bulk import:** load an inventory list from a JSON file, then attach images per product in a
+  second step.
+- **Incoming orders:** transitions `ordered`/`paid` → `in print` → `shipped`.
+- **Tenders:** one bid per tender, with a price for every requested product and an availability flag.
+- **Reporting:** a PDF report of all received offers and the winning bid.
 
 ### Administrator
-- Pregled, ažuriranje i brisanje svih korisničkih naloga, uz filtriranje i pretragu.
-- Poseban tabelarni pregled neodobrenih korisnika sa prihvatanjem/odbacivanjem zahteva (uz i-mejl obaveštenje).
-- Upravljanje kategorijama i potkategorijama proizvoda.
-- **Statistike (Chart.js):** stubičasti grafikon prometa štamparija u poslednjem kvartalu;
-  pita grafikon najčešće naručivanih proizvoda u poslednjih mesec dana (količina/procenat);
-  linijski grafikon kretanja ocene proizvoda kroz vreme, sa isključivanjem pojedinih proizvoda iz prikaza.
 
-### Ostalo
-- Uniforman izgled kroz jedan CSS fajl, header/footer i meni na svakoj strani,
-  link „Izloguj se“ i povratak na početni ekran.
-- **Responsive** dizajn (mobilni meni, prelamanje mreže, horizontalno skrolovanje tabela).
-- Otpornost na neispravan unos: validacija na klijentu i, obavezno, na serveru;
-  centralizovano rukovanje greškama i jedinstveni format poruka.
-- Autorizacija po ulogama preko JWT-a, uz zaštitu ruta na klijentu (guards) i na serveru (middleware).
+- Browse, update and delete all user accounts, with filtering and search.
+- A dedicated table of pending accounts with approve/reject actions (email notification included).
+- Manage product categories and subcategories.
+- **Statistics (Chart.js):** a bar chart of printing-house revenue for the last quarter; a pie chart
+  of the most ordered products in the last month (quantity and percentage); a line chart of product
+  rating over time, with individual products toggleable.
 
-## Statusi narudžbine
-`naruceno` → [`placeno`] → `u stampi` → `isporuceno` → `primljeno`
+### Cross-cutting
 
-## Pregled API ruta
-| Metoda | Ruta | Opis |
+- Uniform look through a single CSS file, shared header/footer and menu on every page, a
+  "Log out" link and return to the landing screen.
+- **Responsive** layout: mobile menu, wrapping grids, horizontally scrollable tables.
+- Resistant to malformed input: validation on the client and, mandatorily, on the server;
+  centralised error handling with a single message format.
+- Role-based authorisation through JWT, with route protection on the client (guards) and on the
+  server (middleware).
+
+---
+
+## Order status flow
+
+```
+ordered → [paid] → in print → shipped → received
+```
+
+Stored values, in order: `naruceno` → [`placeno`] → `u stampi` → `isporuceno` → `primljeno`.
+The `paid` state applies only to card payments; tender-based orders skip it and enter `in print`.
+
+---
+
+## API overview
+
+| Method | Route | Purpose |
 |---|---|---|
-| POST | `/api/auth/register` | registracija (multipart, profilna slika) |
-| POST | `/api/auth/login` · `/api/auth/admin/login` | prijava korisnika / administratora |
-| POST | `/api/auth/forgot-password` · `/api/auth/reset-password` | poništavanje lozinke (link 5 min) |
-| GET | `/api/public/stats` · `/api/public/products` · `/api/public/products/:id` | javna početna strana i pretraga |
-| GET/PUT | `/api/profile` | profil i ažuriranje |
-| GET/POST/PUT/PATCH/DELETE | `/api/printer/products...` | proizvodi, količine, slike, uvoz JSON-a |
-| GET/PATCH | `/api/printer/orders...` | narudžbine i promena statusa |
-| GET/POST | `/api/printer/tenders...` | otvorene nabavke i slanje ponuda |
-| GET/POST/DELETE | `/api/cart...` | e-korpa |
-| POST | `/api/orders/checkout` · `/api/orders/pay` | formiranje faktura i plaćanje |
-| GET | `/api/orders/:id/pdf` | PDF fakture |
-| GET/PATCH/POST | `/api/archive` · `/api/orders/:id/received` · `/api/ratings` | arhiva, prijem, ocene |
-| GET/POST | `/api/tenders...` | javne nabavke pravnog lica i PDF izveštaj |
-| GET/PATCH/PUT/DELETE | `/api/admin/users...` | upravljanje korisnicima i zahtevima |
-| GET | `/api/admin/stats/...` | podaci za tri grafikona |
+| POST | `/api/auth/register` | registration (multipart, profile image) |
+| POST | `/api/auth/login`, `/api/auth/admin/login` | user / administrator sign-in |
+| POST | `/api/auth/forgot-password`, `/api/auth/reset-password` | password reset (5-minute link) |
+| GET | `/api/public/stats`, `/api/public/products`, `/api/public/products/:id` | landing page and public search |
+| GET/PUT | `/api/profile` | profile and updates |
+| GET/POST/PUT/PATCH/DELETE | `/api/printer/products...` | products, stock, images, JSON import |
+| GET/PATCH | `/api/printer/orders...` | incoming orders and status changes |
+| GET/POST | `/api/printer/tenders...` | open tenders and bids |
+| GET/POST/DELETE | `/api/cart...` | shopping cart |
+| POST | `/api/orders/checkout`, `/api/orders/pay` | invoice creation and payment |
+| GET | `/api/orders/:id/pdf` | invoice PDF |
+| GET/PATCH/POST | `/api/archive`, `/api/orders/:id/received`, `/api/ratings` | archive, receipt, ratings |
+| GET/POST | `/api/tenders...` | company tenders and PDF report |
+| GET/PATCH/PUT/DELETE | `/api/admin/users...` | account management and approval requests |
+| GET | `/api/admin/stats/...` | data for the three admin charts |
+
+---
+
+## Implementation notes
+
+**Validation on both sides is deliberate.** Client-side checks exist for fast feedback; the server
+re-validates everything because a client check is a convenience, not a guarantee. All error
+responses share one format so the UI can render them without special cases.
+
+**Tenders close lazily.** Closing happens when the customer signs in again, not on a timer. That
+keeps the backend stateless with respect to time — no scheduler, no WebSocket — and is documented
+in the assignment's scope. The trade-off is that a tender can stay open slightly longer than ten
+minutes; the window is a business rule, not a hard technical boundary.
+
+**One CSS file, no UI framework.** The look is defined by a single stylesheet and shared header,
+footer and menu components, so every page stays visually consistent without pulling in a component
+library.
